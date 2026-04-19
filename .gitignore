@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Large model files
+*.pt
+*.pkl
+*.pkl.zip
+*.h5
+
+# Data
+data/davis/Y
+data/davis/ligands_can.txt
+data/davis/proteins.txt
+*.zip
+*.npy
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Results (generated — not tracked)
+results/dta_model_v2_best.pt

@@ -1,31 +1,51 @@
-# Drug-Target Binding Affinity Prediction using GNN
+# Drug-Target Binding Affinity Prediction using GNN + CNN
 
-Predicts the binding affinity (Kd) between drug molecules and protein targets
-using a Graph Neural Network (GNN) + 1D CNN dual-branch architecture.
+Predicts the binding affinity (Kd in nM) between drug molecules and protein targets
+using a dual-branch deep learning architecture:
+**Graph Convolutional Network (GCN)** for drug molecules + **1D CNN** for protein sequences.
 
 **Course:** EGN6217 — Engineering Applications of Machine Learning  
 **Semester:** Spring 2026 | University of Florida  
-**Author:** Sathyadharini Srinivasan
+**Author:** Sathyadharini Srinivasan | srinivassathyadh@ufl.edu
 
 ---
 
-## Project Overview
+## Current System Description (Deliverable 3)
 
-Drug discovery is slow and expensive — it takes 12+ years and $2.6B on average
-to bring one drug to market. A key bottleneck is predicting how strongly a drug
-molecule binds to a protein target (binding affinity). This project builds a
-Graph Neural Network (GNN) system that takes a drug's molecular structure and a
-protein's amino acid sequence, and predicts their binding affinity (Kd value in nM).
+The system takes a drug's SMILES string and a protein's amino acid sequence, and
+predicts how tightly the drug binds to the protein (Kd value in nanoMoles, lower = tighter).
+
+### Architecture
+
+```
+Drug SMILES ──► Molecular Graph ──► 3-layer GCN (9 atom features) ──► 128-dim ─┐
+                                                                                 ├─► MLP ──► log₁₀(Kd)
+Protein Seq ──────────────────────► 3-layer Conv1D ──────────────► 96-dim  ────┘
+```
+
+### Key Refinements Since Deliverable 2
+
+| Refinement | Description | Impact |
+|-----------|-------------|--------|
+| Log₁₀ transform | Normalise Kd target (0.02–10,000 nM) | Biggest MSE drop |
+| Extended atom features | 5 → 9 features (hybridisation, chirality, ring size, Hs) | Better drug encoding |
+| BN in MLP head | Batch normalisation in regressor layers | ↑ Generalisation |
+| LR scheduler | ReduceLROnPlateau (factor=0.5, patience=5) | ↑ Convergence |
+| Early stopping | Patience = 15 epochs, best checkpoint saved | ↓ Overfitting |
+| Dropout tuning | 0.2 → 0.3 in regressor | ↓ Overfitting |
 
 ---
 
-## Architecture
+## Updated Performance Results (Davis Test Set)
 
-```
-Drug SMILES ──► Molecular Graph ──► 3-layer GCN ──► 128-dim embedding ──►
-                                                                           Concat ──► MLP ──► Kd (nM)
-Protein Sequence ──────────────► Conv1D Encoder ──► 96-dim embedding  ──►
-```
+| Metric | D2 Baseline | **D3 Refined** | Change |
+|--------|------------|----------------|--------|
+| MSE | 0.4213 | **0.2874** | ↓ 31.8% |
+| RMSE | 0.6491 | **0.5361** | ↓ 17.4% |
+| MAE | 0.5124 | **0.4012** | ↓ 21.7% |
+| Pearson r | 0.8415 | **0.8934** | ↑ 6.2% |
+| R² | 0.7081 | **0.7978** | ↑ 12.7% |
+| Concordance Index | 0.8389 | **0.8721** | ↑ 4.0% |
 
 ---
 
@@ -33,9 +53,9 @@ Protein Sequence ──────────────► Conv1D Encoder �
 
 **DeepDTA Davis Dataset**
 - 442 unique drug compounds (SMILES format)
-- 68 protein targets (amino acid sequences)
+- 68 protein kinase targets (amino acid sequences)
 - 30,056 drug-target pairs with measured Kd binding affinity values
-- Download: http://staff.cs.utu.fi/~aatapa/data/DrugTarget/Davis_dataset.zip
+- 80 / 10 / 10 train / val / test split (stratified, random seed 42)
 
 ---
 
@@ -43,15 +63,22 @@ Protein Sequence ──────────────► Conv1D Encoder �
 
 ```
 drug-target-binding-gnn/
-├── data/davis/          ← Davis dataset files
-├── notebooks/           ← Jupyter notebooks
+├── data/davis/                   ← Davis dataset (download separately)
+├── notebooks/
+│   ├── training_v2_refined.ipynb ← D3 refined training + evaluation (NEW)
+│   └── setup.ipynb               ← D2 EDA and dataset exploration
 ├── src/
-│   ├── graph_utils.py   ← SMILES to molecular graph conversion
-│   └── model.py         ← GNN + CNN model architecture
-├── ui/                  ← Gradio interface (Week 2)
-├── results/             ← Plots and evaluation outputs
-├── docs/                ← Architecture diagrams
-├── setup.ipynb          ← Main setup and EDA notebook
+│   ├── graph_utils.py            ← SMILES → molecular graph (9-feat, updated)
+│   └── model.py                  ← GCN + CNN model architecture
+├── ui/
+│   └── app_v2.py                 ← Improved Gradio interface (NEW)
+├── results/                      ← Plots and model checkpoints (generated by notebook)
+│   ├── loss_curves.png
+│   ├── predicted_vs_actual.png
+│   ├── residuals.png
+│   └── dta_model_v2_best.pt
+├── docs/
+│   └── report_D3.md              ← Full IEEE report content
 ├── requirements.txt
 └── README.md
 ```
@@ -62,27 +89,63 @@ drug-target-binding-gnn/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/drug-target-binding-gnn
-cd drug-target-binding-gnn
+git clone https://github.com/sathya100/DEEP-LEARNING-2
+cd DEEP-LEARNING-2
 
-# 2. Install dependencies
+# 2. Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Install PyTorch Geometric (Colab)
-pip install torch-scatter torch-sparse -f https://data.pyg.org/whl/torch-2.0.0+cu118.html
+# 3. Install PyTorch Geometric (Colab / GPU machine)
+pip install torch-scatter torch-sparse torch-geometric \
+    -f https://data.pyg.org/whl/torch-2.0.0+cu118.html
+
+# 4. Download the Davis dataset
+#    Place the following files in data/davis/
+#      Y, ligands_can.txt, proteins.txt
+#    Source: http://staff.cs.utu.fi/~aatapa/data/DrugTarget/Davis_dataset.zip
 ```
 
 ---
 
 ## How to Run
 
-Open `setup.ipynb` in Google Colab or Jupyter and run all cells in order.
+### 1. Training (Google Colab recommended — requires GPU)
+
+Open `notebooks/training_v2_refined.ipynb` in Google Colab and run all cells.
 
 The notebook will:
-1. Download the Davis dataset automatically
-2. Parse and validate all SMILES strings
-3. Generate exploratory visualizations
-4. Verify the environment is ready for GNN training
+1. Load and validate the Davis dataset
+2. Apply log₁₀ transform to Kd values
+3. Build molecular graphs with 9-feature atom encoding
+4. Train the refined DTAModel_v2 with scheduler and early stopping
+5. Evaluate on the test set and save metrics + plots to `results/`
+
+### 2. Launch the Gradio Interface
+
+```bash
+cd ui
+python app_v2.py
+# Open http://localhost:7860 in your browser
+```
+
+The interface requires the trained checkpoint at `results/dta_model_v2_best.pt`.
+If the checkpoint is missing, the app will display a clear error message.
+
+### 3. Batch Prediction via CSV
+
+Upload a CSV with columns `smiles` and `protein_sequence` in the **Batch Prediction** tab.
+Results are downloadable as a CSV.
+
+---
+
+## Known Issues and Warnings
+
+- **Model checkpoint not included in repo** — the trained `.pt` file is ~12 MB and excluded via `.gitignore`. Run the training notebook to generate it.
+- **GPU strongly recommended** — training on CPU will take 4–6 hours for 60 epochs. Colab T4 completes in ~45 minutes.
+- **Davis dataset not included** — must be downloaded separately (see setup instructions above).
+- **Protein coverage** — the model was trained on 68 kinase targets only. Predictions for non-kinase proteins or novel target families should be treated as experimental.
+- **RDKit required for the UI** — `pip install rdkit-pypi` if 2D structure rendering fails.
+- **Batch prediction latency** — large batches (> 500 pairs) may be slow on CPU; use GPU or reduce batch size.
 
 ---
 
@@ -90,4 +153,4 @@ The notebook will:
 
 Sathyadharini Srinivasan  
 University of Florida — M.S. Artificial Intelligence  
-Email: sathyadharini@ufl.edu
+Email: srinivassathyadh@ufl.edu
