@@ -147,7 +147,8 @@ Results are downloadable as a CSV.
 - **RDKit required for the UI** — `pip install rdkit-pypi` if 2D structure rendering fails.
 - **Batch prediction latency** — large batches (> 500 pairs) may be slow on CPU; use GPU or reduce batch size.
 
----
+---<img width="1710" height="976" alt="Screenshot 2026-04-19 at 6 51 40 PM" src="https://github.com/user-attachments/assets/3b7ed5cc-7217-4610-bc1e-2e30b163f025" />
+
 
 ## Contact
 
